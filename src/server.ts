@@ -32,7 +32,17 @@ export class ChatServer {
   }
 
   private sockets(): void {
-    this.io = socketIo(this.server);
+    this.io = socketIo(this.server, {
+      handlePreflightRequest: (req, res) => {
+          const headers = {
+              "Access-Control-Allow-Headers": "Content-Type, Authorization",
+              "Access-Control-Allow-Origin": "https://chat-client-4c8a1.web.app",
+              "Access-Control-Allow-Credentials": true
+          };
+          res.writeHead(200, headers);
+          res.end();
+      }
+  });
   }
 
   private listen(): void {
