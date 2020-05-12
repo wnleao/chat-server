@@ -5,6 +5,7 @@ var express = require("express");
 var socketIo = require("socket.io");
 var ChatServer = /** @class */ (function () {
     function ChatServer() {
+        this.users = {};
         this.createApp();
         this.config();
         this.createServer();
@@ -39,14 +40,23 @@ var ChatServer = /** @class */ (function () {
             console.log('Running server on port %s', _this.port);
         });
         this.io.on('connect', function (socket) {
-            console.log('Connected client on port %s.', _this.port);
+            console.log('connected client %s on port %s.', socket.id, _this.port);
+            socket.on('user_joined', function (user) {
+                console.log("joined " + user.name);
+                _this.users[socket.id] = user;
+                socket.broadcast.emit('user_joined', user);
+            });
             socket.on('message', function (m) {
                 console.log('[server](message): %s', JSON.stringify(m));
                 socket.broadcast.emit('message', m);
-                socket.broadcast.emit('reset_typing', m);
+                socket.broadcast.emit('reset_typing');
             });
             socket.on('disconnect', function () {
-                console.log('Client disconnected');
+                var user = _this.users[socket.id];
+                delete _this.users[socket.id];
+                // TODO: loop over connected users print here
+                console.log('client disconnected ' + socket.id + ' ' + user.name);
+                socket.broadcast.emit('user_left', user);
             });
             socket.on('typing', function () {
                 console.log('User is typing');

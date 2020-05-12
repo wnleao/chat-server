@@ -3,6 +3,7 @@ import * as express from 'express';
 import * as socketIo from 'socket.io';
 
 import { Message } from './common/message';
+import { User } from './common/user';
 
 export class ChatServer {
   public static readonly PORT: number = 5000;
@@ -10,6 +11,8 @@ export class ChatServer {
   private server: Server;
   private io: SocketIO.Server;
   private port: string | number;
+
+  private users = {}
 
   constructor() {
     this.createApp();
@@ -42,7 +45,7 @@ export class ChatServer {
           res.writeHead(200, headers);
           res.end();
       }
-  });
+    });
   }
 
   private listen(): void {
@@ -51,15 +54,28 @@ export class ChatServer {
     });
 
     this.io.on('connect', (socket: any) => {
-      console.log('Connected client on port %s.', this.port);
+      console.log('connected client %s on port %s.', socket.id, this.port);
+
+      socket.on('user_joined', (user: User) => {
+        console.log("joined " + user.name);
+        this.users[socket.id] = user;
+        socket.broadcast.emit('user_joined', user);
+      });
+
       socket.on('message', (m: Message) => {
         console.log('[server](message): %s', JSON.stringify(m));
         socket.broadcast.emit('message', m);
-        socket.broadcast.emit('reset_typing', m);
+        socket.broadcast.emit('reset_typing');
       });
 
       socket.on('disconnect', () => {
-        console.log('Client disconnected');
+        let user = this.users[socket.id];
+        delete this.users[socket.id];
+        
+        // TODO: loop over connected users print here
+
+        console.log( 'client disconnected ' + socket.id + ' ' + user.name);
+        socket.broadcast.emit('user_left', user);
       });
 
       socket.on('typing', () => {
