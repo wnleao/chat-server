@@ -12,8 +12,6 @@ export class ChatServer {
   private io: SocketIO.Server;
   private port: string | number;
 
-  private users = {}
-
   constructor() {
     this.createApp();
     this.config();
@@ -48,6 +46,15 @@ export class ChatServer {
     });
   }
 
+  private emitUserCount() {
+    // updates all connected clients - https://socket.io/docs/emit-cheatsheet/
+    this.io.emit('user_count', this.numberOfSockets());
+  }
+
+  private numberOfSockets(nsp = '/'): number {
+    return Object.keys(this.io.of(nsp).sockets).length;
+  }
+
   private listen(): void {
     this.server.listen(this.port, () => {
       console.log('Running server on port %s', this.port);
@@ -57,9 +64,10 @@ export class ChatServer {
       console.log('connected client %s on port %s.', socket.id, this.port);
 
       socket.on('user_joined', (user: User) => {
-        console.log("joined " + user.name);
-        this.users[socket.id] = user;
+        console.log("joined " + user.name + " - " + this.numberOfSockets());
+        socket.user = user;
         socket.broadcast.emit('user_joined', user);
+        this.emitUserCount();
       });
 
       socket.on('message', (m: Message) => {
@@ -69,13 +77,11 @@ export class ChatServer {
       });
 
       socket.on('disconnect', () => {
-        let user = this.users[socket.id];
-        delete this.users[socket.id];
-        
         // TODO: loop over connected users print here
 
-        console.log( 'client disconnected ' + socket.id + ' ' + user.name);
-        socket.broadcast.emit('user_left', user);
+        console.log( 'client disconnected ' + socket.id + ' ' + socket.user.name + ' - ' + this.numberOfSockets());
+        socket.broadcast.emit('user_left', socket.user);
+        this.emitUserCount();
       });
 
       socket.on('typing', () => {
