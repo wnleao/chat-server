@@ -70,6 +70,11 @@ export class ChatServer {
         this.emitUserCount();
       });
 
+      socket.on('change_username', (username: string) => {
+        console.log(`change user name old = ${socket.user.name}, new = ${username}`);
+        socket.user.name = username;
+      });
+
       socket.on('message', (m: Message) => {
         console.log('[server](message): %s', JSON.stringify(m));
         socket.broadcast.emit('message', m);
