@@ -46,13 +46,16 @@ export class ChatServer {
     });
   }
 
-  private emitUserCount() {
+  private emitUsersOnline(nsp = '/') {
     // updates all connected clients - https://socket.io/docs/emit-cheatsheet/
-    this.io.emit('user_count', this.numberOfSockets());
-  }
-
-  private numberOfSockets(nsp = '/'): number {
-    return Object.keys(this.io.of(nsp).sockets).length;
+    let nspSockets = Object.values(this.io.of(nsp).sockets);
+    console.log('users online ... ' + nspSockets.length);
+    let users = { };
+    for(let socket of nspSockets) {
+      users[socket.id] = socket['user']
+    }
+    console.log(users);
+    this.io.emit('users_online', users);
   }
 
   private listen(): void {
@@ -64,10 +67,10 @@ export class ChatServer {
       console.log('connected client %s on port %s.', socket.id, this.port);
 
       socket.on('user_joined', (user: User) => {
-        console.log("joined " + user.name + " - " + this.numberOfSockets());
+        console.log("joined " + user.name);
         socket.user = user;
         socket.broadcast.emit('user_joined', user);
-        this.emitUserCount();
+        this.emitUsersOnline();
       });
 
       socket.on('change_username', (username: string) => {
@@ -84,9 +87,9 @@ export class ChatServer {
       socket.on('disconnect', () => {
         // TODO: loop over connected users print here
 
-        console.log( 'client disconnected ' + socket.id + ' ' + socket.user.name + ' - ' + this.numberOfSockets());
+        console.log( 'client disconnected ' + socket.id + ' ' + socket.user.name);
         socket.broadcast.emit('user_left', socket.user);
-        this.emitUserCount();
+        this.emitUsersOnline();
       });
 
       socket.on('typing', () => {

@@ -33,13 +33,18 @@ var ChatServer = /** @class */ (function () {
             }
         });
     };
-    ChatServer.prototype.emitUserCount = function () {
-        // updates all connected clients - https://socket.io/docs/emit-cheatsheet/
-        this.io.emit('user_count', this.numberOfSockets());
-    };
-    ChatServer.prototype.numberOfSockets = function (nsp) {
+    ChatServer.prototype.emitUsersOnline = function (nsp) {
         if (nsp === void 0) { nsp = '/'; }
-        return Object.keys(this.io.of(nsp).sockets).length;
+        // updates all connected clients - https://socket.io/docs/emit-cheatsheet/
+        var nspSockets = Object.values(this.io.of(nsp).sockets);
+        console.log('users online ... ' + nspSockets.length);
+        var users = {};
+        for (var _i = 0, nspSockets_1 = nspSockets; _i < nspSockets_1.length; _i++) {
+            var socket = nspSockets_1[_i];
+            users[socket.id] = socket['user'];
+        }
+        console.log(users);
+        this.io.emit('users_online', users);
     };
     ChatServer.prototype.listen = function () {
         var _this = this;
@@ -49,10 +54,10 @@ var ChatServer = /** @class */ (function () {
         this.io.on('connect', function (socket) {
             console.log('connected client %s on port %s.', socket.id, _this.port);
             socket.on('user_joined', function (user) {
-                console.log("joined " + user.name + " - " + _this.numberOfSockets());
+                console.log("joined " + user.name);
                 socket.user = user;
                 socket.broadcast.emit('user_joined', user);
-                _this.emitUserCount();
+                _this.emitUsersOnline();
             });
             socket.on('change_username', function (username) {
                 console.log("change user name old = " + socket.user.name + ", new = " + username);
@@ -65,9 +70,9 @@ var ChatServer = /** @class */ (function () {
             });
             socket.on('disconnect', function () {
                 // TODO: loop over connected users print here
-                console.log('client disconnected ' + socket.id + ' ' + socket.user.name + ' - ' + _this.numberOfSockets());
+                console.log('client disconnected ' + socket.id + ' ' + socket.user.name);
                 socket.broadcast.emit('user_left', socket.user);
-                _this.emitUserCount();
+                _this.emitUsersOnline();
             });
             socket.on('typing', function () {
                 console.log('User is typing');
