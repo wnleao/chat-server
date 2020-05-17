@@ -66,10 +66,13 @@ export class ChatServer {
     this.io.on('connect', (socket: any) => {
       console.log('connected client %s on port %s.', socket.id, this.port);
 
+      // All connected users will join and listen to messages sent to the main-room.
+      socket.join('main-room');
+
       socket.on('user_joined', (user: User) => {
         console.log("joined " + user.name);
         socket.user = user;
-        socket.broadcast.emit('user_joined', user);
+        socket.broadcast.emit('user_joined', { socketId: socket.id, user: user });
         this.emitUsersOnline();
       });
 
@@ -80,26 +83,23 @@ export class ChatServer {
 
       socket.on('message', (m: Message) => {
         console.log('[server](message): %s', JSON.stringify(m));
-        socket.broadcast.emit('message', m);
-        socket.broadcast.emit('reset_typing');
+        socket.broadcast.to(m.recipient).emit('message', m);
       });
 
       socket.on('disconnect', () => {
-        // TODO: loop over connected users print here
-
-        console.log( 'client disconnected ' + socket.id + ' ' + socket.user.name);
-        socket.broadcast.emit('user_left', socket.user);
+        console.log(`client disconnected ${socket.id} ${socket.user.name}`);
+        socket.broadcast.emit('user_left', { socketId: socket.id, user: socket.user });
         this.emitUsersOnline();
       });
 
-      socket.on('typing', () => {
-        console.log('User is typing');
-        socket.broadcast.emit('typing');
+      socket.on('typing', (data) => {
+        console.log(`User ${data.sender} is typing in room ${data.room}`);
+        socket.broadcast.to(data.room).emit('typing', data);
       });
 
-      socket.on('reset_typing', () => {
-        console.log('User is not typing anymore');
-        socket.broadcast.emit('reset_typing');
+      socket.on('reset_typing', (data) => {
+        console.log(`User ${data.sender} is not typing in room ${data.room}`);
+        socket.broadcast.to(data.room).emit('reset_typing', data);
       });
     });
   }

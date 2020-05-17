@@ -53,10 +53,12 @@ var ChatServer = /** @class */ (function () {
         });
         this.io.on('connect', function (socket) {
             console.log('connected client %s on port %s.', socket.id, _this.port);
+            // All connected users will join and listen to messages sent to the main-room.
+            socket.join('main-room');
             socket.on('user_joined', function (user) {
                 console.log("joined " + user.name);
                 socket.user = user;
-                socket.broadcast.emit('user_joined', user);
+                socket.broadcast.emit('user_joined', { socketId: socket.id, user: user });
                 _this.emitUsersOnline();
             });
             socket.on('change_username', function (username) {
@@ -65,22 +67,20 @@ var ChatServer = /** @class */ (function () {
             });
             socket.on('message', function (m) {
                 console.log('[server](message): %s', JSON.stringify(m));
-                socket.broadcast.emit('message', m);
-                socket.broadcast.emit('reset_typing');
+                socket.broadcast.to(m.recipient).emit('message', m);
             });
             socket.on('disconnect', function () {
-                // TODO: loop over connected users print here
-                console.log('client disconnected ' + socket.id + ' ' + socket.user.name);
-                socket.broadcast.emit('user_left', socket.user);
+                console.log("client disconnected " + socket.id + " " + socket.user.name);
+                socket.broadcast.emit('user_left', { socketId: socket.id, user: socket.user });
                 _this.emitUsersOnline();
             });
-            socket.on('typing', function () {
-                console.log('User is typing');
-                socket.broadcast.emit('typing');
+            socket.on('typing', function (data) {
+                console.log("User " + data.sender + " is typing in room " + data.room);
+                socket.broadcast.to(data.room).emit('typing', data);
             });
-            socket.on('reset_typing', function () {
-                console.log('User is not typing anymore');
-                socket.broadcast.emit('reset_typing');
+            socket.on('reset_typing', function (data) {
+                console.log("User " + data.sender + " is not typing in room " + data.room);
+                socket.broadcast.to(data.room).emit('reset_typing', data);
             });
         });
     };
