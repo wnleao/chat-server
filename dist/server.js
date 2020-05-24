@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var http_1 = require("http");
 var express = require("express");
 var socketIo = require("socket.io");
+var uuid_1 = require("uuid");
 var ChatServer = /** @class */ (function () {
     function ChatServer() {
         this.createApp();
@@ -67,6 +68,11 @@ var ChatServer = /** @class */ (function () {
             });
             socket.on('message', function (m) {
                 console.log('[server](message): %s', JSON.stringify(m));
+                // message state 3 - server_received
+                var old_id = m.uuid;
+                m.uuid = uuid_1.v1();
+                socket.emit('message_registered', { room: m.room, old_id: old_id, uuid: m.uuid });
+                // message state 4 - server_sent
                 socket.broadcast.to(m.recipient).emit('message', m);
             });
             socket.on('disconnect', function () {

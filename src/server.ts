@@ -1,7 +1,7 @@
 import { createServer, Server } from 'http';
 import * as express from 'express';
 import * as socketIo from 'socket.io';
-
+import { v1 as uuidv1 } from 'uuid';
 import { Message } from './common/message';
 import { User } from './common/user';
 
@@ -83,7 +83,14 @@ export class ChatServer {
 
       socket.on('message', (m: Message) => {
         console.log('[server](message): %s', JSON.stringify(m));
-        socket.broadcast.to(m.recipient).emit('message', m);
+
+        // message state 3 - server_received
+        let old_id = m.uuid;
+        m.uuid = uuidv1();
+        socket.emit('message_registered', {room: m.room, old_id: old_id, uuid: m.uuid});
+
+        // message state 4 - server_sent
+        socket.broadcast.to(m.recipient).emit('message', m);        
       });
 
       socket.on('disconnect', () => {
