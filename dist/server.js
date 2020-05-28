@@ -71,9 +71,21 @@ var ChatServer = /** @class */ (function () {
                 // message state 3 - server_received
                 var old_id = m.uuid;
                 m.uuid = uuid_1.v1();
-                socket.emit('message_registered', { room: m.room, old_id: old_id, uuid: m.uuid });
+                var room = m.room;
+                if (room != 'main-room') {
+                    room = m.recipient;
+                }
+                socket.emit('message_registered', { room: room, old_id: old_id, uuid: m.uuid });
                 // message state 4 - server_sent
                 socket.broadcast.to(m.recipient).emit('message', m);
+            });
+            socket.on('message_delivered', function (m) {
+                console.log('message_delivered: %s', JSON.stringify(m));
+                socket.to(m.recipient).emit('message_delivered', m);
+            });
+            socket.on('message_seen', function (m) {
+                console.log('message_seen: %s', JSON.stringify(m));
+                socket.to(m.recipient).emit('message_seen', m);
             });
             socket.on('disconnect', function () {
                 console.log("client disconnected " + socket.id + " " + socket.user.name);

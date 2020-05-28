@@ -87,10 +87,26 @@ export class ChatServer {
         // message state 3 - server_received
         let old_id = m.uuid;
         m.uuid = uuidv1();
-        socket.emit('message_registered', {room: m.room, old_id: old_id, uuid: m.uuid});
+
+        let room = m.room;
+        if (room != 'main-room') {
+          room = m.recipient;
+        }
+
+        socket.emit('message_registered', {room: room, old_id: old_id, uuid: m.uuid});
 
         // message state 4 - server_sent
         socket.broadcast.to(m.recipient).emit('message', m);        
+      });
+
+      socket.on('message_delivered', (m: Message) => {
+        console.log('message_delivered: %s', JSON.stringify(m));
+        socket.to(m.recipient).emit('message_delivered', m);        
+      });
+
+      socket.on('message_seen', (m: Message) => {
+        console.log('message_seen: %s', JSON.stringify(m));
+        socket.to(m.recipient).emit('message_seen', m);        
       });
 
       socket.on('disconnect', () => {
