@@ -4,6 +4,7 @@ var http_1 = require("http");
 var express = require("express");
 var socketIo = require("socket.io");
 var uuid_1 = require("uuid");
+var message_state_1 = require("./common/message_state");
 var ChatServer = /** @class */ (function () {
     function ChatServer() {
         this.createApp();
@@ -47,6 +48,17 @@ var ChatServer = /** @class */ (function () {
         console.log(users);
         this.io.emit('users_online', users);
     };
+    ChatServer.prototype.notifyMessageState = function (message, state) {
+        var _a;
+        message.state = message_state_1.MessageState.CLIENT_READ;
+        message.content = '';
+        message.room = message.recipient;
+        // We need to notify back the user who sent the message in the first place.
+        // That's why we have to swap the recipient and sender.
+        _a = [message.sender, message.recipient], message.recipient = _a[0], message.sender = _a[1];
+        console.log('%s: %s', state, JSON.stringify(message));
+        this.io.to(message.recipient).emit(state, message);
+    };
     ChatServer.prototype.listen = function () {
         var _this = this;
         this.server.listen(this.port, function () {
@@ -79,13 +91,11 @@ var ChatServer = /** @class */ (function () {
                 // message state 4 - server_sent
                 socket.broadcast.to(m.recipient).emit('message', m);
             });
-            socket.on('message_delivered', function (m) {
-                console.log('message_delivered: %s', JSON.stringify(m));
-                socket.to(m.recipient).emit('message_delivered', m);
+            socket.on('client_received', function (m) {
+                _this.notifyMessageState(m, message_state_1.MessageState.CLIENT_RECEIVED);
             });
-            socket.on('message_seen', function (m) {
-                console.log('message_seen: %s', JSON.stringify(m));
-                socket.to(m.recipient).emit('message_seen', m);
+            socket.on('client_read', function (m) {
+                _this.notifyMessageState(m, message_state_1.MessageState.CLIENT_READ);
             });
             socket.on('disconnect', function () {
                 console.log("client disconnected " + socket.id + " " + socket.user.name);

@@ -4,6 +4,7 @@ import * as socketIo from 'socket.io';
 import { v1 as uuidv1 } from 'uuid';
 import { Message } from './common/message';
 import { User } from './common/user';
+import { MessageState } from './common/message_state';
 
 export class ChatServer {
   public static readonly PORT: number = 5000;
@@ -58,6 +59,18 @@ export class ChatServer {
     this.io.emit('users_online', users);
   }
 
+  private notifyMessageState(message: Message, state: MessageState) {
+    message.state = MessageState.CLIENT_READ;
+    message.content = '';
+    message.room = message.recipient;
+    // We need to notify back the user who sent the message in the first place.
+    // That's why we have to swap the recipient and sender.
+    [message.recipient, message.sender] = [message.sender, message.recipient];
+    console.log('%s: %s', state, JSON.stringify(message));
+    this.io.to(message.recipient).emit(state, message);   
+
+  }
+
   private listen(): void {
     this.server.listen(this.port, () => {
       console.log('Running server on port %s', this.port);
@@ -99,14 +112,12 @@ export class ChatServer {
         socket.broadcast.to(m.recipient).emit('message', m);        
       });
 
-      socket.on('message_delivered', (m: Message) => {
-        console.log('message_delivered: %s', JSON.stringify(m));
-        socket.to(m.recipient).emit('message_delivered', m);        
+      socket.on('client_received', (m: Message) => {
+        this.notifyMessageState(m, MessageState.CLIENT_RECEIVED);
       });
 
-      socket.on('message_seen', (m: Message) => {
-        console.log('message_seen: %s', JSON.stringify(m));
-        socket.to(m.recipient).emit('message_seen', m);        
+      socket.on('client_read', (m: Message) => {
+        this.notifyMessageState(m, MessageState.CLIENT_READ);
       });
 
       socket.on('disconnect', () => {
